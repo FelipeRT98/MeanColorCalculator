@@ -1,0 +1,61 @@
+<html>
+
+<head>
+    <title>Mean Color Calculator</title>
+    <!DOCTYPE html>
+    <html lang="en">
+
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="author" content="Felipe Rodrigues" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <link rel="icon" href="https://resources.whatwg.org/logo.svg" />
+    </head>
+
+<body>
+    <label for="localImagesSelector">Load images from device: </label>
+    <input multiple id="localImagesSelector" name="localImagesSelector" type="file" accept=".gif, .png, .jpeg, .jpg" />
+
+    <script>
+
+        const localImagesSelector = document.getElementById('localImagesSelector');
+
+        // Listen for file selection
+        localImagesSelector.addEventListener('change', function () {
+            const file = localImagesSelector.files[0];
+
+            if (!file) {
+                console.info("No file selected.");
+                return;
+            }
+            console.log(`File name: ${file.name} || Size: ${file.size} bytes`);
+
+            const reader = new FileReader();
+
+            // Read file as ArrayBuffer (raw binary data)
+            reader.onload = function (e) {
+                const arrayBuffer = e.target.result;
+                const bytes = new Uint8Array(arrayBuffer);
+
+                // Display first 100 bytes as example
+                let byteStr = "";
+                for (let i = 0; i < Math.min(bytes.length, 100); i++) {
+                    byteStr += bytes[i].toString().padStart(3, '0') + " ";
+                }
+
+                console.log(`\nFirst bytes:\n${byteStr}`);
+            };
+
+            reader.onerror = function () {
+                document.getElementById('output').textContent = "Error reading file.";
+            };
+
+            reader.readAsArrayBuffer(file); // Read as raw bytes
+
+        });
+
+
+    </script>
+</body>
+
+</html>
