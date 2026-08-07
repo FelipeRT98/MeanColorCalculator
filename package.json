@@ -1,0 +1,23 @@
+{
+  "name": "meancolorcalculator",
+  "version": "1.0.0",
+  "description": "",
+  "homepage": "https://github.com/FelipeRT98/MeanColorCalculator#readme",
+  "bugs": {
+    "url": "https://github.com/FelipeRT98/MeanColorCalculator/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/FelipeRT98/MeanColorCalculator.git"
+  },
+  "license": "ISC",
+  "author": "Felipe RT",
+  "type": "commonjs",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "devDependencies": {
+    "electron": "^43.2.0"
+  }
+}
