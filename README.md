@@ -37,6 +37,10 @@ The initial goal behind its creation was to create flat texture mods and compare
 
 ## Usage instructions
 
+Go to https://felipert98.github.io/MeanColorCalculator/
+
+OR
+
 1. Clone or download this repository.
 2. Open index.html in your web browser.
 
