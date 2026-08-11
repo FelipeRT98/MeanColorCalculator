@@ -1,11 +1,39 @@
+<!--
+    Mean Color Calculator
+    This tool analyzes images to calculate mean colors, count unique colors, identify the most used colors, generate color maps, and view overall image statistics.
+    Copyright (C) 2026  Felipe R.
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <https://www.gnu.org/licenses/>.
+-->
 <!DOCTYPE html>
 <html lang="en">
 
 <head>
     <meta charset="UTF-8">
+
     <title>Mean Color Calculator</title>
+    <meta name="application-name" content="Mean Color Calculator">
+    <meta name="version" content="1.0">
+    <link rel="icon" type="image/svg" href="./MeanColorCalculator-Icon.svg">
+
     <meta name="author" content="Felipe Rodrigues">
+    <meta name="description" content="Analyze images to calculate mean colors, count unique colors, identify the most used colors, generate color maps, and view overall image statistics.">
+    <meta name="keywords" content="mean color, average color, dominant color, image analysis, color analysis, color statistics, color map, color palette, unique colors, most used colors, RGB, HSL, HSV, HWB, image palette, sprite analysis, sprite palette, png, jpg, jpeg, gif, bmp, webp, avif, svg, ico, HTML, CSS, JavaScript, Electron">
+
     <meta name="viewport" content="width=device-width, initial-scale=1">
+
+
 
     <style>
         * {
@@ -44,12 +72,18 @@
         h1 {
             font-weight: 1000;
             font-size: 60px;
+            text-align: center;
         }
 
         h2 {
             font-weight: 800;
             font-size: 40px;
         }
+
+        h2::before {
+            content: "◆";
+        }
+
 
         .long-name {
             max-width: 12ch;
@@ -187,9 +221,7 @@
     <div id="screen">
         <div id="app">
 
-            <h1>
-                Mean Color Calculator
-            </h1>
+            <h1>Mean Color Calculator</h1>
 
             <hr>
 
@@ -523,11 +555,18 @@
 
 
         async function exportResult() {
-            //TODO: add progress feedback
+
             if (!RESULT_TABLE) {
                 alert("Table not found.");
                 return;
             }
+
+            const EXPORT_BUTTON = document.getElementById("exportButton");
+            const originalButtonText = EXPORT_BUTTON.textContent;
+            let rowsProcessed = 0;
+            const totalRowsToProcess = RESULT_TABLE.querySelectorAll("tbody tr").length;
+            EXPORT_BUTTON.textContent = `Export 0/(${totalRowsToProcess})`;
+            EXPORT_BUTTON.disabled = true;
 
             const rows = [];
 
@@ -573,6 +612,8 @@
                 });
 
                 rows.push(values.join("\t"));
+                rowsProcessed++;
+                EXPORT_BUTTON.textContent = `Export ${rowsProcessed}/${totalRowsToProcess}`;
             }
 
             const tsv = rows.join("\n");
@@ -592,7 +633,12 @@
                 await writable.write(tsv);
                 await writable.close();
 
+                EXPORT_BUTTON.textContent = originalButtonText;
+                EXPORT_BUTTON.disabled = false;
+
             } catch (err) {
+                EXPORT_BUTTON.textContent = originalButtonText;
+                EXPORT_BUTTON.disabled = false;
                 if (err.name !== "AbortError") {
                     console.error(err);
                     alert("Failed to save file.");
@@ -603,10 +649,16 @@
 
         async function exportColorMapImages() {
             try {
-                //TODO: add progress feedback
                 const directoryHandle = await window.showDirectoryPicker();
 
                 const images = document.querySelectorAll(".colorMapImage");
+
+                const EXPORT_COLORMAPIMAGES_BUTTON = document.getElementById("exportColorMapImagesButton");
+                const originalButtonText = EXPORT_COLORMAPIMAGES_BUTTON.textContent;
+                let imagesExported = 0;
+                const totalImagesToExport = images.length;
+                EXPORT_COLORMAPIMAGES_BUTTON.textContent = `Export Color Map Images 0/(${totalImagesToExport})`;
+                EXPORT_COLORMAPIMAGES_BUTTON.disabled = true;
 
                 for (const img of images) {
 
@@ -626,7 +678,13 @@
 
                     await writable.write(blob);
                     await writable.close();
+
+                    imagesExported++;
+                    EXPORT_COLORMAPIMAGES_BUTTON.textContent = `Export Color Map Images ${imagesExported}/${totalImagesToExport}`;
                 }
+
+                EXPORT_COLORMAPIMAGES_BUTTON.textContent = originalButtonText;
+                EXPORT_COLORMAPIMAGES_BUTTON.disabled = false;
             }
             catch (error) {
                 if (error.name === "AbortError") {
@@ -687,7 +745,7 @@
                 data[p + 0] = 0;
                 data[p + 1] = 0;
                 data[p + 2] = 0;
-                data[p + 3] = 255;
+                data[p + 3] = 0;
                 pixelIndex++;
             }
 
@@ -747,7 +805,7 @@
             let everyImageNonSkippedPixelCount = 0;
             let everyImageTotalRed = 0, everyImageTotalGreen = 0, everyImageTotalBlue = 0;
 
-            REMAINING.textContent = `${imagesRemaining}`;
+            REMAINING.textContent = `${imagesProcessed}/${NUMBER_OF_IMAGES_TO_PROCESS}`;
             TOTAL_BYTES_CELL.textContent = 0;
             TOTAL_PIXELS_CELL.textContent = 0;
             TOTAL_NONSKIPPEDPIXELS_CELL.textContent = 0;
@@ -808,6 +866,7 @@
                     URL.revokeObjectURL(previewImage.src);
                 };
                 previewCell.appendChild(previewImage);
+                previewCell.style.background = "repeating-conic-gradient(#ddd 0 25%, #fff 0 50%) 50% / 5px 5px";
 
                 const lastDot = file.name.lastIndexOf(".");
 
@@ -978,6 +1037,7 @@
 
                         colorMapImageCell.innerHTML = "";
                         colorMapImageCell.appendChild(generateColorMapImage(currentImageUniqueColorsAndCountMap));
+                        colorMapImageCell.style.background = "repeating-conic-gradient(#ddd 0 25%, #fff 0 50%) 50% / 5px 5px";
 
 
                         const currentImageMostUsedColors = [...currentImageUniqueColorsAndCountMap.entries()]
@@ -1039,7 +1099,8 @@
 
                     imagesProcessed++;
                     imagesRemaining--;
-                    REMAINING.textContent = `${imagesRemaining}`;
+                    REMAINING.textContent = `${imagesProcessed}/${NUMBER_OF_IMAGES_TO_PROCESS}`;
+
 
                     if (imagesProcessed === NUMBER_OF_IMAGES_TO_PROCESS) {
                         if (everyImageNonSkippedPixelCount > 0) {
@@ -1065,6 +1126,7 @@
 
                             TOTAL_COLORMAPIMAGE_CELL.innerHTML = "";
                             TOTAL_COLORMAPIMAGE_CELL.appendChild(generateColorMapImage(everyImageUniqueColorsAndCountMap));
+                            TOTAL_COLORMAPIMAGE_CELL.style.background = "repeating-conic-gradient(#ddd 0 25%, #fff 0 50%) 50% / 5px 5px";
 
 
                             const everyImageMostUsedColors = [...everyImageUniqueColorsAndCountMap.entries()]
@@ -1155,7 +1217,7 @@
                     imagesProcessed++;
                     imagesRemaining--;
 
-                    REMAINING.textContent = imagesRemaining;
+                    REMAINING.textContent = `${imagesProcessed}/${NUMBER_OF_IMAGES_TO_PROCESS}`;
 
                     PREFERENCES_SECTION.hidden = false;
                     TOTAL_SECTION.hidden = false;
