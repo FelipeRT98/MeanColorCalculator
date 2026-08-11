@@ -10,6 +10,7 @@ yarn-error.log*
 # OS files
 .DS_Store
 Thumbs.db
+*.ini
 Desktop.ini
 
 # Editor files
