@@ -1,7 +1,7 @@
 <!--
     Mean Color Calculator
     This tool analyzes images to calculate mean colors, count unique colors, identify the most used colors, generate color maps, and view overall image statistics.
-    Copyright (C) 2026  Felipe R.
+    Copyright (C) 2026  Felipe Rodrigues
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -24,14 +24,17 @@
 
     <title>Mean Color Calculator</title>
     <meta name="application-name" content="Mean Color Calculator">
-    <meta name="version" content="1.0">
-    <link rel="icon" type="image/svg" href="./MeanColorCalculator-Icon.svg">
+    <meta name="version" content="1.1">
+    <link rel="icon" type="image/svg+xml" href="./MeanColorCalculator-Icon.svg">
 
     <meta name="author" content="Felipe Rodrigues">
     <meta name="description" content="Analyze images to calculate mean colors, count unique colors, identify the most used colors, generate color maps, and view overall image statistics.">
     <meta name="keywords" content="mean color, average color, dominant color, image analysis, color analysis, color statistics, color map, color palette, unique colors, most used colors, RGB, HSL, HSV, HWB, image palette, sprite analysis, sprite palette, png, jpg, jpeg, gif, bmp, webp, avif, svg, ico, HTML, CSS, JavaScript, web">
 
     <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'self' blob: data:; connect-src data:; base-uri 'none'; form-action 'none'">
+    <meta name="referrer" content="no-referrer">
 
 
 
@@ -107,12 +110,8 @@
 
         #localImageSelector::file-selector-button {
             margin: 0;
-            padding: 0px 10px;
             font-family: 'Courier New', monospace;
             font-size: 16px;
-        }
-
-        #localImageSelector::file-selector-button {
             border: 0px solid black;
             border-right: 1px solid black;
         }
@@ -239,11 +238,17 @@
                             </th>
                             <th class="cellVerticalGap"></th>
                             <th id="exportButtonCell" hidden>
-                                <button id="exportButton" class="clickable" onclick="exportResult()">Export TSV</button>
+                                <button id="exportButton" class="clickable" onclick="exportResult()" title="⌜&#10;Exported columns: Name, Extension, Bytes, Width, Height, Pixels, Non-Skipped Pixels, Mean Color, Unique Colors, Most Used Colors, Color Map Image(b64), Original Image(b64)">Export TSV</button>
                             </th>
                             <th class="cellVerticalGap"></th>
                             <th id="exportColorMapImagesCell" hidden>
                                 <button id="exportColorMapImagesButton" class="clickable" onclick="exportColorMapImages()">Export Color Map Images</button>
+                            </th>
+                            <th class="cellVerticalGap"></th>
+                            <th id="exportJsonCell" hidden>
+                                <button id="exportJsonButton" class="clickable" onclick="exportJson()" title="⌜&#10;const myData = {&#10;  &quot;1_image&quot;: {&#10;    image: &quot;data:image/png;base64,...&quot;,&#10;    colorMap: &quot;data:image/png;base64,...&quot;,&#10;  },&#10;  &quot;2_image&quot;: {&#10;    image: &quot;data:image/png;base64,...&quot;,&#10;    colorMap: &quot;data:image/png;base64,...&quot;,&#10;  },&#10;};&#10;⌞">
+                                    Export JSON
+                                </button>
                             </th>
                         </tr>
                     </thead>
@@ -306,6 +311,7 @@
                             <td id="totalMostUsedColors"></td>
                             <td id="totalColorMapImage"></td>
                         </tr>
+                    </tbody>
                 </table>
             </div>
 
@@ -386,6 +392,7 @@
         const LOCAL_IMAGE_SELECTOR = document.getElementById("localImageSelector");
         const EXPORT_BUTTON_CELL = document.getElementById("exportButtonCell");
         const EXPORT_COLOR_MAP_IMAGES_CELL = document.getElementById("exportColorMapImagesCell");
+        const EXPORT_JSON_CELL = document.getElementById("exportJsonCell");
 
         const PREFERENCES_SECTION = document.getElementById("preferences");
         const TOTAL_SECTION = document.getElementById("total");
@@ -415,24 +422,24 @@
             rows.sort((a, b) => {
 
                 if (colIndex === 8) {
-                    const { h: hA, w: wA, b: bA } = a.cells[colIndex].dataset;
-                    const { h: hB, w: wB, b: bB } = b.cells[colIndex].dataset;
+                    const [hA, wA, bA] = (a.cells[colIndex].dataset.hwb || "0, 0, 0").split(",").map(Number);
+                    const [hB, wB, bB] = (b.cells[colIndex].dataset.hwb || "0, 0, 0").split(",").map(Number);
 
-                    return Number(hA) - Number(hB) ||
-                        (asc ? Number(bB) - Number(bA) : Number(bA) - Number(bB)) ||
-                        (asc ? Number(wA) - Number(wB) : Number(wB) - Number(wA));
+                    return (asc ? hA - hB : hB - hA) ||
+                        (asc ? bB - bA : bA - bB) ||
+                        (asc ? wA - wB : wB - wA);
                 }
 
-                const A = a.cells[colIndex].innerText;
-                const B = b.cells[colIndex].innerText;
+                const A = a.cells[colIndex].textContent;
+                const B = b.cells[colIndex].textContent;
 
                 const valA = isNaN(A) ? A : Number(A);
                 const valB = isNaN(B) ? B : Number(B);
 
-                if (typeof valA === "string" && typeof valB === "string") {
+                if (typeof valA !== "number" || typeof valB !== "number") {
                     return asc
-                        ? valA.localeCompare(valB, undefined, { numeric: true })
-                        : valB.localeCompare(valA, undefined, { numeric: true });
+                        ? A.localeCompare(B, undefined, { numeric: true })
+                        : B.localeCompare(A, undefined, { numeric: true });
                 }
 
                 return asc
@@ -468,6 +475,11 @@
                     hideColorValueDisplay(cell);
                 }
             }
+        }
+
+
+        function keyToRGB(key) {
+            return [key >> 16, (key >> 8) & 255, key & 255];
         }
 
 
@@ -550,7 +562,8 @@
             return text
                 .replace(/\t/g, " ")
                 .replace(/\r?\n/g, " ")
-                .trim();
+                .trim()
+                .replace(/^[=+\-@]/, "'$&");
         }
 
 
@@ -565,7 +578,7 @@
             const originalButtonText = EXPORT_BUTTON.textContent;
             let rowsProcessed = 0;
             const totalRowsToProcess = RESULT_TABLE.querySelectorAll("tbody tr").length;
-            EXPORT_BUTTON.textContent = `Export 0/(${totalRowsToProcess})`;
+            EXPORT_BUTTON.textContent = `Export 0/${totalRowsToProcess}`;
             EXPORT_BUTTON.disabled = true;
 
             const rows = [];
@@ -573,6 +586,8 @@
             const headers = [...RESULT_TABLE.querySelectorAll("thead th")]
                 .slice(1)
                 .map(th => sanitizeTSV(th.textContent));
+
+            headers.push("Original Image");
 
             rows.push(headers.join("\t"));
 
@@ -587,10 +602,10 @@
                 const values = cells.map((td, index) => {
 
                     if (index === 9) {
-                        const mostUsedColors = JSON.parse(td.dataset.mostUsedColors);
+                        const mostUsedColors = JSON.parse(td.dataset.mostUsedColors || "[]");
 
                         for (const mostUsedColor of mostUsedColors) {
-                            const rgb = mostUsedColor[0].split(",").map(Number);
+                            const rgb = keyToRGB(mostUsedColor[0]);
 
                             if (colorModel === "hex") {
                                 mostUsedColor[0] = rgbToHEX(...rgb);
@@ -599,17 +614,22 @@
                                 const hwb = rgbToHWB(...rgb);
                                 mostUsedColor[0] = `${hwb.h}, ${hwb.w}, ${hwb.b}`;
                             }
+                            else {
+                                mostUsedColor[0] = rgb.join(",");
+                            }
                         }
 
                         return sanitizeTSV(JSON.stringify(mostUsedColors));
                     }
 
                     if (index === 10) {
-                        return sanitizeTSV(td.querySelector("img").dataset.base64);
+                        return sanitizeTSV(td.querySelector("img")?.dataset.base64 ?? "");
                     }
 
                     return sanitizeTSV(td.textContent);
                 });
+
+                values.push(sanitizeTSV(tr.cells[0].querySelector("img")?.dataset.base64 ?? ""));
 
                 rows.push(values.join("\t"));
                 rowsProcessed++;
@@ -647,24 +667,40 @@
         }
 
 
+        function getUniqueName(name, usedNames) {
+            let uniqueName = name;
+            let counter = 2;
+
+            while (usedNames.has(uniqueName)) {
+                uniqueName = `${name} (${counter++})`;
+            }
+
+            usedNames.add(uniqueName);
+            return uniqueName;
+        }
+
+
         async function exportColorMapImages() {
+
+            const EXPORT_COLORMAPIMAGES_BUTTON = document.getElementById("exportColorMapImagesButton");
+            const originalButtonText = EXPORT_COLORMAPIMAGES_BUTTON.textContent;
+
             try {
                 const directoryHandle = await window.showDirectoryPicker();
 
                 const images = document.querySelectorAll(".colorMapImage");
+                const usedNames = new Set();
 
-                const EXPORT_COLORMAPIMAGES_BUTTON = document.getElementById("exportColorMapImagesButton");
-                const originalButtonText = EXPORT_COLORMAPIMAGES_BUTTON.textContent;
                 let imagesExported = 0;
                 const totalImagesToExport = images.length;
-                EXPORT_COLORMAPIMAGES_BUTTON.textContent = `Export Color Map Images 0/(${totalImagesToExport})`;
+                EXPORT_COLORMAPIMAGES_BUTTON.textContent = `Export Color Map Images 0/${totalImagesToExport}`;
                 EXPORT_COLORMAPIMAGES_BUTTON.disabled = true;
 
                 for (const img of images) {
 
                     const tr = img.closest("tr");
 
-                    const fileName = tr.querySelector(".nameCell")?.textContent || "total";
+                    const fileName = getUniqueName(tr.querySelector(".nameCell")?.textContent ?? "total", usedNames);
 
                     const response = await fetch(img.dataset.base64);
                     const blob = await response.blob();
@@ -682,9 +718,6 @@
                     imagesExported++;
                     EXPORT_COLORMAPIMAGES_BUTTON.textContent = `Export Color Map Images ${imagesExported}/${totalImagesToExport}`;
                 }
-
-                EXPORT_COLORMAPIMAGES_BUTTON.textContent = originalButtonText;
-                EXPORT_COLORMAPIMAGES_BUTTON.disabled = false;
             }
             catch (error) {
                 if (error.name === "AbortError") {
@@ -692,8 +725,52 @@
                 }
 
                 console.error(error);
-                alert("Unable to select the destination folder.");
+                alert("Unable to export the color map images.");
             }
+            finally {
+                EXPORT_COLORMAPIMAGES_BUTTON.textContent = originalButtonText;
+                EXPORT_COLORMAPIMAGES_BUTTON.disabled = false;
+            }
+        }
+
+
+        async function exportJson() {
+            const rows = RESULT_TABLE.querySelectorAll("tbody tr");
+            const data = {};
+            const usedNames = new Set();
+
+            for (const tr of rows) {
+                const cells = [...tr.cells].slice(1);
+                const nameCell = cells[0];
+                const colorMapCell = cells[10];
+                const originalImageCell = tr.cells[0];
+
+                const colorMapImg = colorMapCell.querySelector("img");
+                const originalImageImg = originalImageCell.querySelector("img");
+
+                const colorMapBase64 = colorMapImg ? colorMapImg.dataset.base64 : "";
+                const imageBase64 = originalImageImg ? originalImageImg.dataset.base64 : "";
+
+                const imageName = getUniqueName(nameCell?.textContent || "image", usedNames);
+
+                data[`${imageName}`] = {
+                    image: imageBase64,
+                    colorMap: colorMapBase64,
+                };
+            }
+
+            const jsonContent = `const myData = ${JSON.stringify(data, null, 2)};`;
+
+            const blob = new Blob([jsonContent], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = "image_data.json";
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
         }
 
 
@@ -723,7 +800,7 @@
             let pixelIndex = 0;
 
             for (const [color, count] of sortedColors) {
-                const [r, g, b] = color.split(",").map(Number);
+                const [r, g, b] = keyToRGB(color);
 
                 for (let i = 0; i < count; i++) {
                     const p = pixelIndex * 4;
@@ -759,15 +836,14 @@
             preview.classList.add("preview");
             preview.classList.add("colorMapImage");
 
-            canvas.toBlob((blob) => {
-                if (!blob) return;
+            const base64 = canvas.toDataURL("image/png");
+            const binary = atob(base64.split(",")[1]);
+            const bytes = Uint8Array.from(binary, character => character.charCodeAt(0));
+            const url = URL.createObjectURL(new Blob([bytes], { type: "image/png" }));
 
-                const url = URL.createObjectURL(blob);
-
-                link.href = url;
-                preview.src = url;
-                preview.dataset.base64 = canvas.toDataURL("image/png");
-            }, "image/png");
+            link.href = url;
+            preview.src = url;
+            preview.dataset.base64 = base64;
 
             link.appendChild(preview);
 
@@ -787,7 +863,11 @@
         let everyImageUniqueColorsAndCountMap = new Map();
 
 
-        function processImages() {
+        async function processImages() {
+
+            if (LOCAL_IMAGE_SELECTOR.files.length === 0) {
+                return;
+            }
 
             document.querySelectorAll("a[target='_blank']").forEach(link => {
                 if (link.href.startsWith("blob:")) {
@@ -797,9 +877,7 @@
 
             const NUMBER_OF_IMAGES_TO_PROCESS = LOCAL_IMAGE_SELECTOR.files.length
 
-            let validImages = 0;
             let imagesProcessed = 0;
-            let imagesRemaining = NUMBER_OF_IMAGES_TO_PROCESS;
 
             let everyImagePixelCount = 0;
             let everyImageNonSkippedPixelCount = 0;
@@ -819,6 +897,7 @@
                 INPUT_AND_OUTPUT_SECTION.hidden = true;
                 EXPORT_BUTTON_CELL.hidden = true;
                 EXPORT_COLOR_MAP_IMAGES_CELL.hidden = true;
+                EXPORT_JSON_CELL.hidden = true;
                 REMAINING.hidden = false;
                 RESULT_TBODY.innerHTML = "";
             }
@@ -832,9 +911,119 @@
                         const g = parseInt(hex.slice(2, 4), 16);
                         const b = parseInt(hex.slice(4, 6), 16);
 
-                        return `${r},${g},${b}`;
+                        return (r << 16) | (g << 8) | b;
                     })
             );
+
+
+            const imageDone = () => {
+                imagesProcessed++;
+                REMAINING.textContent = `${imagesProcessed}/${NUMBER_OF_IMAGES_TO_PROCESS}`;
+
+                if (imagesProcessed === NUMBER_OF_IMAGES_TO_PROCESS) {
+                    if (everyImageNonSkippedPixelCount > 0) {
+
+                        const everyImageMeanRed = Math.round(everyImageTotalRed / everyImageNonSkippedPixelCount);
+                        const everyImageMeanGreen = Math.round(everyImageTotalGreen / everyImageNonSkippedPixelCount);
+                        const everyImageMeanBlue = Math.round(everyImageTotalBlue / everyImageNonSkippedPixelCount);
+                        const hex = rgbToHEX(everyImageMeanRed, everyImageMeanGreen, everyImageMeanBlue);
+                        const hwb = rgbToHWB(everyImageMeanRed, everyImageMeanGreen, everyImageMeanBlue);
+
+                        TOTAL_MEANCOLOR_CELL.classList.add("meanColorCell");
+
+                        TOTAL_MEANCOLOR_CELL.dataset.r = everyImageMeanRed;
+                        TOTAL_MEANCOLOR_CELL.dataset.g = everyImageMeanGreen;
+                        TOTAL_MEANCOLOR_CELL.dataset.b = everyImageMeanBlue;
+                        TOTAL_MEANCOLOR_CELL.dataset.hex = hex;
+                        TOTAL_MEANCOLOR_CELL.dataset.hwb = `${hwb.h}, ${hwb.w}, ${hwb.b}`;
+
+                        TOTAL_MEANCOLOR_CELL.style.background = `rgb(${everyImageMeanRed}, ${everyImageMeanGreen}, ${everyImageMeanBlue})`;
+
+
+                        TOTAL_UNIQUECOLORS_CELL.textContent = everyImageUniqueColorsAndCountMap.size;
+
+                        TOTAL_COLORMAPIMAGE_CELL.innerHTML = "";
+                        TOTAL_COLORMAPIMAGE_CELL.appendChild(generateColorMapImage(everyImageUniqueColorsAndCountMap));
+                        TOTAL_COLORMAPIMAGE_CELL.style.background = "repeating-conic-gradient(#ddd 0 25%, #fff 0 50%) 50% / 5px 5px";
+
+
+                        const everyImageMostUsedColors = [...everyImageUniqueColorsAndCountMap.entries()]
+                            .sort((a, b) => b[1] - a[1])
+                            .slice(0, 31);
+                        TOTAL_MOSTUSEDCOLORS_CELL.innerHTML = "";
+                        TOTAL_MOSTUSEDCOLORS_CELL.style.display = "flex";
+                        TOTAL_MOSTUSEDCOLORS_CELL.style.padding = "0";
+                        TOTAL_MOSTUSEDCOLORS_CELL.style.background = "white";
+
+                        for (const [color, count] of everyImageMostUsedColors) {
+                            const colorSegment = document.createElement("div");
+                            const [r, g, b] = keyToRGB(color);
+                            const hex = rgbToHEX(r, g, b);
+                            const hwb = rgbToHWB(r, g, b);
+
+                            colorSegment.classList.add("colorSegment");
+                            colorSegment.style.flex = "1";
+                            colorSegment.style.minHeight = "2ch";
+                            colorSegment.style.minWidth = "2ch";
+                            colorSegment.style.background = `rgb(${r}, ${g}, ${b})`;
+
+                            colorSegment.dataset.r = r;
+                            colorSegment.dataset.g = g;
+                            colorSegment.dataset.b = b;
+                            colorSegment.dataset.hex = hex;
+                            colorSegment.dataset.hwb = `${hwb.h}, ${hwb.w}, ${hwb.b}`;
+
+                            colorSegment.dataset.count = count;
+
+                            TOTAL_MOSTUSEDCOLORS_CELL.appendChild(colorSegment);
+                        }
+
+                    }
+                    else {
+                        TOTAL_MEANCOLOR_CELL.classList.remove("meanColorCell");
+                        TOTAL_MEANCOLOR_CELL.textContent = "";
+
+                        TOTAL_MEANCOLOR_CELL.dataset.r = "";
+                        TOTAL_MEANCOLOR_CELL.dataset.g = "";
+                        TOTAL_MEANCOLOR_CELL.dataset.b = "";
+                        TOTAL_MEANCOLOR_CELL.dataset.hex = "";
+                        TOTAL_MEANCOLOR_CELL.dataset.hwb = "";
+
+                        TOTAL_MEANCOLOR_CELL.style.background = `repeating-linear-gradient(45deg, #ff00ff, #ff00ff 5px, black 5px, black 10px)`;
+                        TOTAL_MEANCOLOR_CELL.style.color = "";
+                        TOTAL_MEANCOLOR_CELL.style.textShadow = "none";
+
+                        TOTAL_COLORMAPIMAGE_CELL.innerHTML = "";
+
+
+                        TOTAL_MOSTUSEDCOLORS_CELL.innerHTML = "";
+                        TOTAL_MOSTUSEDCOLORS_CELL.removeAttribute("style");
+                        TOTAL_MOSTUSEDCOLORS_CELL.style.background = `repeating-linear-gradient(45deg, #ff00ff, #ff00ff 5px, black 5px, black 10px)`;
+
+                    }
+
+                    changeColorModel();
+
+                    PREFERENCES_SECTION.hidden = false;
+                    TOTAL_SECTION.hidden = false;
+                    RESULT_SECTION.hidden = false;
+                    INPUT_AND_OUTPUT_SECTION.hidden = false;
+                    EXPORT_BUTTON_CELL.hidden = false;
+                    EXPORT_COLOR_MAP_IMAGES_CELL.hidden = false;
+                    EXPORT_JSON_CELL.hidden = false;
+                    REMAINING.hidden = true;
+
+                    const meanColorCells = document.querySelectorAll(".meanColorCell");
+
+                    for (const cell of meanColorCells) {
+                        if (colorValueDisplayVisible) {
+                            showColorValueDisplay(cell);
+                        } else {
+                            hideColorValueDisplay(cell);
+                        }
+                    }
+                }
+            };
 
 
             for (const file of LOCAL_IMAGE_SELECTOR.files) {
@@ -858,14 +1047,17 @@
                 const colorMapImageCell = document.createElement("td");
 
 
-                //TODO click to open new tab with image 
                 const previewImage = document.createElement("img");
                 previewImage.className = "preview";
-                previewImage.src = URL.createObjectURL(file);
-                previewImage.onload = () => {
-                    URL.revokeObjectURL(previewImage.src);
-                };
-                previewCell.appendChild(previewImage);
+                previewImage.src = objectURL;
+
+                const previewLink = document.createElement("a");
+                previewLink.target = "_blank";
+                previewLink.rel = "noopener noreferrer";
+                previewLink.href = objectURL;
+                previewLink.appendChild(previewImage);
+
+                previewCell.appendChild(previewLink);
                 previewCell.style.background = "repeating-conic-gradient(#ddd 0 25%, #fff 0 50%) 50% / 5px 5px";
 
                 const lastDot = file.name.lastIndexOf(".");
@@ -920,16 +1112,7 @@
 
                         console.error(error);
 
-                        imagesProcessed++;
-                        imagesRemaining--;
-
-                        PREFERENCES_SECTION.hidden = false;
-                        TOTAL_SECTION.hidden = false;
-                        RESULT_SECTION.hidden = false;
-                        INPUT_AND_OUTPUT_SECTION.hidden = false;
-                        EXPORT_BUTTON_CELL.hidden = false;
-                        EXPORT_COLOR_MAP_IMAGES_CELL.hidden = false;
-                        REMAINING.hidden = true;
+                        imageDone();
 
                         return;
                     }
@@ -967,12 +1150,14 @@
                         let b = data[i + 2];
 
                         // TODO : Allow user to select background color, default to white
-                        const alpha = a / 255;
-                        r = Math.round(r * alpha + 255 * (1 - alpha));
-                        g = Math.round(g * alpha + 255 * (1 - alpha));
-                        b = Math.round(b * alpha + 255 * (1 - alpha));
+                        if (a !== 255) {
+                            const alpha = a / 255;
+                            r = Math.round(r * alpha + 255 * (1 - alpha));
+                            g = Math.round(g * alpha + 255 * (1 - alpha));
+                            b = Math.round(b * alpha + 255 * (1 - alpha));
+                        }
 
-                        const key = `${r},${g},${b}`;
+                        const key = (r << 16) | (g << 8) | b;
 
                         if (colorsToSkip.has(key)) {
                             currentImageSkippedPixelCount++;
@@ -983,18 +1168,9 @@
                         currentImageTotalGreen += g;
                         currentImageTotalBlue += b;
 
-                        everyImageTotalRed += r;
-                        everyImageTotalGreen += g;
-                        everyImageTotalBlue += b;
-
                         currentImageUniqueColorsAndCountMap.set(
                             key,
                             (currentImageUniqueColorsAndCountMap.get(key) ?? 0) + 1
-                        );
-
-                        everyImageUniqueColorsAndCountMap.set(
-                            key,
-                            (everyImageUniqueColorsAndCountMap.get(key) ?? 0) + 1
                         );
 
                     }
@@ -1002,6 +1178,17 @@
 
                     // ------------------------------------------------------------------
 
+
+                    everyImageTotalRed += currentImageTotalRed;
+                    everyImageTotalGreen += currentImageTotalGreen;
+                    everyImageTotalBlue += currentImageTotalBlue;
+
+                    for (const [key, count] of currentImageUniqueColorsAndCountMap) {
+                        everyImageUniqueColorsAndCountMap.set(
+                            key,
+                            (everyImageUniqueColorsAndCountMap.get(key) ?? 0) + count
+                        );
+                    }
 
                     currentImageNonSkippedPixelCount = currentImagePixelCount - currentImageSkippedPixelCount;
                     nonSkippedPixelsCountCell.textContent = currentImageNonSkippedPixelCount;
@@ -1040,6 +1227,9 @@
                         colorMapImageCell.style.background = "repeating-conic-gradient(#ddd 0 25%, #fff 0 50%) 50% / 5px 5px";
 
 
+                        previewImage.dataset.base64 = canvas.toDataURL("image/png");
+
+
                         const currentImageMostUsedColors = [...currentImageUniqueColorsAndCountMap.entries()]
                             .sort((a, b) => b[1] - a[1])
                             .slice(0, 15);
@@ -1049,7 +1239,7 @@
 
                         const colorModel = COLOR_MODEL_DROPDOWN.value;
                         for (const [color, count] of currentImageMostUsedColors) {
-                            const [r, g, b] = color.split(",").map(Number);
+                            const [r, g, b] = keyToRGB(color);
 
                             const colorSegment = document.createElement("div");
                             const hex = rgbToHEX(r, g, b);
@@ -1072,7 +1262,6 @@
                             mostUsedColorsCell.appendChild(colorSegment);
                         }
 
-                        validImages++;
                     }
                     else {
                         meanColorCell.classList.remove("meanColorCell");
@@ -1097,135 +1286,14 @@
                     }
 
 
-                    imagesProcessed++;
-                    imagesRemaining--;
-                    REMAINING.textContent = `${imagesProcessed}/${NUMBER_OF_IMAGES_TO_PROCESS}`;
-
-
-                    if (imagesProcessed === NUMBER_OF_IMAGES_TO_PROCESS) {
-                        if (everyImageNonSkippedPixelCount > 0) {
-
-                            const everyImageMeanRed = Math.round(everyImageTotalRed / everyImageNonSkippedPixelCount);
-                            const everyImageMeanGreen = Math.round(everyImageTotalGreen / everyImageNonSkippedPixelCount);
-                            const everyImageMeanBlue = Math.round(everyImageTotalBlue / everyImageNonSkippedPixelCount);
-                            const hex = rgbToHEX(everyImageMeanRed, everyImageMeanGreen, everyImageMeanBlue);
-                            const hwb = rgbToHWB(everyImageMeanRed, everyImageMeanGreen, everyImageMeanBlue);
-
-                            TOTAL_MEANCOLOR_CELL.classList.add("meanColorCell");
-
-                            TOTAL_MEANCOLOR_CELL.dataset.r = everyImageMeanRed;
-                            TOTAL_MEANCOLOR_CELL.dataset.g = everyImageMeanGreen;
-                            TOTAL_MEANCOLOR_CELL.dataset.b = everyImageMeanBlue;
-                            TOTAL_MEANCOLOR_CELL.dataset.hex = hex;
-                            TOTAL_MEANCOLOR_CELL.dataset.hwb = `${hwb.h}, ${hwb.w}, ${hwb.b}`;
-
-                            TOTAL_MEANCOLOR_CELL.style.background = `rgb(${everyImageMeanRed}, ${everyImageMeanGreen}, ${everyImageMeanBlue})`;
-
-
-                            TOTAL_UNIQUECOLORS_CELL.textContent = everyImageUniqueColorsAndCountMap.size;
-
-                            TOTAL_COLORMAPIMAGE_CELL.innerHTML = "";
-                            TOTAL_COLORMAPIMAGE_CELL.appendChild(generateColorMapImage(everyImageUniqueColorsAndCountMap));
-                            TOTAL_COLORMAPIMAGE_CELL.style.background = "repeating-conic-gradient(#ddd 0 25%, #fff 0 50%) 50% / 5px 5px";
-
-
-                            const everyImageMostUsedColors = [...everyImageUniqueColorsAndCountMap.entries()]
-                                .sort((a, b) => b[1] - a[1])
-                                .slice(0, 31);
-                            TOTAL_MOSTUSEDCOLORS_CELL.innerHTML = "";
-                            TOTAL_MOSTUSEDCOLORS_CELL.style.display = "flex";
-                            TOTAL_MOSTUSEDCOLORS_CELL.style.padding = "0";
-                            TOTAL_MOSTUSEDCOLORS_CELL.style.background = "white";
-
-                            for (const [color, count] of everyImageMostUsedColors) {
-                                const colorSegment = document.createElement("div");
-                                const [r, g, b] = color.split(",").map(Number);
-                                const hex = rgbToHEX(r, g, b);
-                                const hwb = rgbToHWB(r, g, b);
-
-                                colorSegment.classList.add("colorSegment");
-                                colorSegment.style.flex = "1";
-                                colorSegment.style.minHeight = "2ch";
-                                colorSegment.style.minWidth = "2ch";
-                                colorSegment.style.background = `rgb(${r}, ${g}, ${b})`;
-
-                                colorSegment.dataset.r = r;
-                                colorSegment.dataset.g = g;
-                                colorSegment.dataset.b = b;
-                                colorSegment.dataset.hex = hex;
-                                colorSegment.dataset.hwb = `${hwb.h}, ${hwb.w}, ${hwb.b}`;
-
-                                colorSegment.dataset.count = count;
-
-                                TOTAL_MOSTUSEDCOLORS_CELL.appendChild(colorSegment);
-                            }
-
-                        }
-                        else {
-                            TOTAL_MEANCOLOR_CELL.classList.remove("meanColorCell");
-                            TOTAL_MEANCOLOR_CELL.textContent = "";
-
-                            TOTAL_MEANCOLOR_CELL.dataset.r = "";
-                            TOTAL_MEANCOLOR_CELL.dataset.g = "";
-                            TOTAL_MEANCOLOR_CELL.dataset.b = "";
-                            TOTAL_MEANCOLOR_CELL.dataset.hex = "";
-                            TOTAL_MEANCOLOR_CELL.dataset.hwb = "";
-
-                            TOTAL_MEANCOLOR_CELL.style.background = `repeating-linear-gradient(45deg, #ff00ff, #ff00ff 5px, black 5px, black 10px)`;
-                            TOTAL_MEANCOLOR_CELL.style.color = "";
-                            TOTAL_MEANCOLOR_CELL.style.textShadow = "none";
-
-                            TOTAL_COLORMAPIMAGE_CELL.innerHTML = "";
-
-
-                            TOTAL_MOSTUSEDCOLORS_CELL.innerHTML = "";
-                            TOTAL_MOSTUSEDCOLORS_CELL.removeAttribute("style");
-                            TOTAL_MOSTUSEDCOLORS_CELL.style.background = `repeating-linear-gradient(45deg, #ff00ff, #ff00ff 5px, black 5px, black 10px)`;
-
-                        }
-
-                        changeColorModel();
-
-                        PREFERENCES_SECTION.hidden = false;
-                        TOTAL_SECTION.hidden = false;
-                        RESULT_SECTION.hidden = false;
-                        INPUT_AND_OUTPUT_SECTION.hidden = false;
-                        EXPORT_BUTTON_CELL.hidden = false;
-                        EXPORT_COLOR_MAP_IMAGES_CELL.hidden = false;
-                        REMAINING.hidden = true;
-
-                        const meanColorCells = document.querySelectorAll(".meanColorCell");
-
-                        for (const cell of meanColorCells) {
-                            if (colorValueDisplayVisible) {
-                                showColorValueDisplay(cell);
-                            } else {
-                                hideColorValueDisplay(cell);
-                            }
-                        }
-                    }
-
-                    URL.revokeObjectURL(objectURL);
+                    imageDone();
                 };
 
                 image.onerror = () => {
 
-                    URL.revokeObjectURL(objectURL);
-
                     console.error(`Unable to decode ${file.name}`);
 
-                    imagesProcessed++;
-                    imagesRemaining--;
-
-                    REMAINING.textContent = `${imagesProcessed}/${NUMBER_OF_IMAGES_TO_PROCESS}`;
-
-                    PREFERENCES_SECTION.hidden = false;
-                    TOTAL_SECTION.hidden = false;
-                    RESULT_SECTION.hidden = false;
-                    INPUT_AND_OUTPUT_SECTION.hidden = false;
-                    EXPORT_BUTTON_CELL.hidden = false;
-                    EXPORT_COLOR_MAP_IMAGES_CELL.hidden = false;
-                    REMAINING.hidden = true;
+                    imageDone();
 
                 };
 

@@ -23,7 +23,7 @@ A tool that analyzes images to calculate mean colors, count unique colors, ident
 - **Multiple Color Formats**: View color values as RGB, HEX, or HWB.
 - **Batch**: Analyze multiple images at once and calculate statistics for the entire batch.
 - **Sorting**: Sort images by name, extension, or color.
-- **Export**: Export results as TSV files and color map images.
+- **Export**: Export results as TSV, JSON and color map images.
 - **Image Details**: View file size, dimensions, pixel count, and number of unique colors.
 - **Supported Formats**: PNG, JPG, JPEG, GIF, BMP, WEBP, AVIF, SVG, and ICO.
 - **Pure Web**: Built entirely with HTML, CSS, and JavaScript. Runs directly in any modern web browser without installation.
