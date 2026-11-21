@@ -10,7 +10,7 @@
 
 ## What
 
-A tool that analyzes images to calculate mean colors, count unique colors, identify the most used colors, generate color maps, and view overall image statistics.
+A browser tool that analyzes images to calculate mean colors, count unique colors, identify the most used colors, generate color maps, and view overall image statistics.
 
 ![example1.png](.github/example1.png)
 
